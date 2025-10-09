@@ -331,7 +331,6 @@ variable "enable_saml_provider" {
 variable "saml_metadata_url" {
   description = "SAML metadata URL for the identity provider"
   type        = string
-  default     = "https://nvisionx.okta.com/app/exkki3byq1pfF7SAs697/sso/saml/metadata"
 }
 
 # User Import Configuration
@@ -344,7 +343,7 @@ variable "import_cognito_users" {
 variable "cognito_users_csv_path" {
   description = "Path to CSV file containing users to import"
   type        = string
-  default     = "../../app/scripts/nx-cognito_users_updated.csv"
+  default     = "nx-cognito_users_updated.csv"
 }
 
 # Cognito User Pool Configuration
