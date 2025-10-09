@@ -1,0 +1,303 @@
+{
+  "Comment": "Job Processing State Machine",
+  "StartAt": "CheckPhase",
+  "States": {
+    "CheckPhase": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.phase",
+          "StringEquals": "saving",
+          "Next": "SaveState"
+        }
+      ],
+      "Default": "IndexingJobProcess"
+    },
+    "SaveState": {
+      "Type": "Task",
+      "Resource": "${LambdaFunctionArn}",
+      "Parameters": {
+        "job_id.$": "$.job_id",
+        "phase.$": "$.phase",
+        "flag.$": "$.flag",
+        "user_id.$": "$.user_id",
+        "records.$": "$.records",
+        "filters.$": "$.filters",
+        "page.$": "$.page",
+        "size.$": "$.size",
+        "select_on_page.$": "$.select_on_page",
+        "global_status.$": "$.global_status",
+        "job_type.$": "$.job_type"
+      },
+      "Next": "CheckFlag"
+    },
+    "CheckFlag": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.flag",
+          "StringEquals": "tuning",
+          "Next": "IndexingTuning"
+        },
+        {
+          "Variable": "$.flag",
+          "StringEquals": "executing",
+          "Next": "ExecuteJob"
+        }
+      ]
+    },
+    "IndexingTuning": {
+      "Type": "Task",
+      "Resource": "${LambdaFunctionArn}",
+      "Parameters": {
+        "phase": "indexing",
+        "job_id.$": "$.job_id",
+        "user_id.$": "$.user_id",
+        "job_type.$": "$.job_type",
+        "flag.$": "$.flag",
+        "records.$": "$.records",
+        "page.$": "$.page",
+        "size.$": "$.size",
+        "filters.$": "$.filters",
+        "select_on_page.$": "$.select_on_page"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "HandleFailure"
+        }
+      ],
+      "Next": "ProcessBatches"
+    },
+    "IndexingPending": {
+      "Type": "Task",
+      "Resource": "${LambdaFunctionArn}",
+      "Parameters": {
+        "job_id.$": "$.job_id",
+        "user_id.$": "$.user_id",
+        "job_type.$": "$.job_type",
+        "flag": "pending",
+        "phase":"indexing"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "HandleFailure"
+        }
+      ],
+      "Next": "ProcessBatches"
+    },
+    "ExecuteJob": {
+      "Type": "Task",
+      "Resource": "${LambdaFunctionArn}",
+      "Parameters": {
+        "phase": "executing",
+        "job_id.$": "$.job_id",
+        "user_id.$": "$.user_id",
+        "flag.$": "$.flag",
+        "job_type.$": "$.job_type",
+        "filters.$": "$.filters",
+        "page.$": "$.page",
+        "size.$": "$.size",
+        "select_on_page.$": "$.select_on_page",
+        "records.$": "$.records",
+        "global_status.$": "$.global_status"
+      },
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "HandleFailure"
+        }
+      ],
+      "Next": "CompleteJob"
+    },
+    "IndexingJobProcess": {
+      "Type": "Task",
+      "Resource": "${LambdaFunctionArn}",
+      "Parameters": {
+        "phase": "indexing",
+        "job_id.$": "$.job_id",
+        "user_id.$": "$.user_id",
+        "job_type.$": "$.job_type",
+        "s3_uri.$": "$.s3_uri"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "HandleFailure"
+        }
+      ],
+      "Next": "ProcessBatches"
+    },
+    "ProcessBatches": {
+      "Type": "Map",
+      "InputPath": "$",
+      "ItemsPath": "$.batches",
+      "Parameters": {
+        "job_id.$": "$.job_id",
+        "user_id.$": "$.user_id",
+        "job_type.$": "$.job_type",
+        "batch_id.$": "$$.Map.Item.Value"
+      },
+      "MaxConcurrency": 25,
+      "Iterator": {
+        "StartAt": "ProcessBatch",
+        "States": {
+          "ProcessBatch": {
+            "Type": "Task",
+            "Resource": "${LambdaFunctionArn}",
+            "Parameters": {
+              "phase": "processing",
+              "job_id.$": "$.job_id",
+              "user_id.$": "$.user_id",
+              "job_type.$": "$.job_type",
+              "batch_id.$": "$.batch_id"
+            },
+            "Retry": [
+              {
+                "ErrorEquals": [
+                  "States.ALL"
+                ],
+                "IntervalSeconds": 2,
+                "MaxAttempts": 3,
+                "BackoffRate": 2
+              }
+            ],
+            "End": true
+          }
+        }
+      },
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "HandleFailure"
+        }
+      ],
+      "ResultPath": null,
+      "Next": "CheckCompletion"
+    },
+    "CheckCompletion": {
+      "Type": "Task",
+      "Resource": "${LambdaFunctionArn}",
+      "Parameters": {
+        "phase": "checking",
+        "job_id.$": "$.job_id",
+        "user_id.$": "$.user_id",
+        "job_type.$": "$.job_type"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "HandleFailure"
+        }
+      ],
+      "Next": "DetermineNextStep"
+    },
+    "DetermineNextStep": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.has_pending_records",
+          "BooleanEquals": true,
+          "Next": "IndexingPending"
+        }
+      ],
+      "Default": "CompleteJob"
+    },
+    "CompleteJob": {
+      "Type": "Task",
+      "Resource": "${LambdaFunctionArn}",
+      "Parameters": {
+        "phase": "completion",
+        "job_id.$": "$.job_id",
+        "user_id.$": "$.user_id",
+        "flag.$": "$$.Execution.Input.flag"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "HandleFailure"
+        }
+      ],
+      "End": true
+    },
+    "HandleFailure": {
+      "Type": "Task",
+      "Resource": "${LambdaFunctionArn}",
+      "Parameters": {
+        "phase": "failed",
+        "job_id.$": "$$.Execution.Input.job_id",
+        "flag.$": "$$.Execution.Input.flag"
+      },
+      "Next": "FailState"
+    },
+    "FailState": {
+      "Type": "Fail",
+      "Error": "JobFailed"
+    }
+  }
+}
