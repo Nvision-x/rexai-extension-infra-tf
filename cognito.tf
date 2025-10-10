@@ -128,6 +128,15 @@ resource "aws_cognito_identity_provider" "okta" {
   attribute_mapping = {
     email = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"
   }
+
+  # ignore changes to the ActiveEncryptionCertificate and SSORedirectBindingURI fields that 
+  # AWS automatically manages, preventing the perpetual drift on every terraform apply.
+  lifecycle {
+    ignore_changes = [
+      provider_details["ActiveEncryptionCertificate"],
+      provider_details["SSORedirectBindingURI"]
+    ]
+  }
 }
 
 
