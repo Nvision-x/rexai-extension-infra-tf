@@ -299,26 +299,14 @@ variable "tags" {
 variable "cognito_callback_urls" {
   description = "List of allowed callback URLs for the Cognito app client"
   type        = list(string)
-  default = [
-    "https://rexai-demo.nvisionx.ai/",
-    "https://rexai-fbol.nvisionx.ai/",
-    "https://rexai-internal.nvisionx.ai/",
-    "https://rexai-ssb.nvisionx.ai/",
-    "https://rexai-uat.nvisionx.ai/"
-  ]
+  default     = []
 }
 
 # Cognito Logout URLs
 variable "cognito_logout_urls" {
   description = "List of allowed logout URLs for the Cognito app client"
   type        = list(string)
-  default = [
-    "https://rexai-demo.nvisionx.ai/",
-    "https://rexai-fbol.nvisionx.ai/",
-    "https://rexai-internal.nvisionx.ai/",
-    "https://rexai-ssb.nvisionx.ai/",
-    "https://rexai-uat.nvisionx.ai/"
-  ]
+  default     = []
 }
 
 # SAML Configuration
@@ -343,7 +331,7 @@ variable "import_cognito_users" {
 variable "cognito_users_csv_path" {
   description = "Path to CSV file containing users to import"
   type        = string
-  default     = "nx-cognito_users_updated.csv"
+  default     = "nx_cognito_users.csv"
 }
 
 # Cognito User Pool Configuration
