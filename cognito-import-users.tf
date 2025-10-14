@@ -65,8 +65,7 @@ resource "null_resource" "cognito_import_users" {
   }
 
   depends_on = [
-    aws_cognito_user_pool.rexai,
-    aws_iam_role_policy_attachment.cognito_cloudwatch
+    aws_cognito_user_pool.rexai
   ]
 
   # Force recreation if CSV changes
