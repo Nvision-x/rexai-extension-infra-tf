@@ -441,8 +441,6 @@ module "app_runner_private" {
           AWS_ACCOUNT_ID                = data.aws_caller_identity.current.account_id
           STEP_FUNCTION_NAME            = var.step_function_name
           STEP_FX_ARN                   = aws_sfn_state_machine.invoke_lambda_step_function.arn
-          LAMBDA_FUNCTION_NAME          = var.lambda_function_name
-          STATE_MACHINE_DEFINITION_FILE = var.state_machine_definition_file
           OPENSEARCH_URL                = "https://${var.opensearch_domain_endpoint}"
           S3_BUCKET                     = aws_s3_bucket.rexai_bucket.id
           RECORDS_SCHEDULE_INDEX        = var.records_schedule_index
