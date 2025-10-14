@@ -316,6 +316,24 @@ resource "null_resource" "opensearch_backend_role_mapping" {
 # ----------------------------------------------------------------------------
 # Lambda Function
 # ----------------------------------------------------------------------------
+# Force Lambda to update when image URI changes
+resource "null_resource" "lambda_image_update" {
+  triggers = {
+    image_uri = var.lambda_image_uri
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      aws lambda update-function-code \
+        --function-name ${var.lambda_function_name} \
+        --image-uri ${var.lambda_image_uri} \
+        --region ${var.region} || true
+    EOT
+  }
+
+  depends_on = [aws_lambda_function.main]
+}
+
 resource "aws_lambda_function" "main" {
   function_name = var.lambda_function_name
   role          = var.lambda_execution_role_arn
