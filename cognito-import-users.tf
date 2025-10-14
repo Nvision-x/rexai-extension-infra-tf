@@ -7,9 +7,10 @@ resource "null_resource" "cognito_import_users" {
     command = <<-EOT
       set -e
 
-      # Create import job
+      # Create import job with timestamp (remove colons to satisfy regex)
+      TIMESTAMP=$(date +%Y%m%d-%H%M%S)
       JOB_RESPONSE=$(aws cognito-idp create-user-import-job \
-        --job-name "${var.name_prefix}-import-job-${timestamp()}" \
+        --job-name "${var.name_prefix}-import-job-$TIMESTAMP" \
         --user-pool-id "${aws_cognito_user_pool.rexai.id}" \
         --cloud-watch-logs-role-arn "${var.cognito_cloudwatch_role_arn}" \
         --region "${var.region}" \
