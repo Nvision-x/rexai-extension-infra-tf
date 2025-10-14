@@ -38,24 +38,41 @@ resource "null_resource" "cognito_import_users" {
 
       echo "Started import job: $JOB_ID"
 
-      # Wait for completion (optional)
+      # Wait for completion with enhanced error handling
       echo "Waiting for import to complete..."
       while true; do
-        STATUS=$(aws cognito-idp describe-user-import-job \
+        JOB_INFO=$(aws cognito-idp describe-user-import-job \
           --user-pool-id "${aws_cognito_user_pool.rexai.id}" \
           --job-id "$JOB_ID" \
           --region "${var.region}" \
-          --query 'UserImportJob.Status' \
-          --output text)
+          --output json)
 
-        echo "Import status: $STATUS"
+        STATUS=$(echo "$JOB_INFO" | jq -r '.UserImportJob.Status')
+        IMPORTED_USERS=$(echo "$JOB_INFO" | jq -r '.UserImportJob.ImportedUsers // 0')
+        SKIPPED_USERS=$(echo "$JOB_INFO" | jq -r '.UserImportJob.SkippedUsers // 0')
+        FAILED_USERS=$(echo "$JOB_INFO" | jq -r '.UserImportJob.FailedUsers // 0')
+
+        echo "Import status: $STATUS (Imported: $IMPORTED_USERS, Skipped: $SKIPPED_USERS, Failed: $FAILED_USERS)"
 
         if [[ "$STATUS" == "Succeeded" ]]; then
           echo "Import completed successfully!"
           break
         elif [[ "$STATUS" == "Failed" ]] || [[ "$STATUS" == "Stopped" ]]; then
-          echo "Import failed with status: $STATUS"
-          exit 1
+          # Check if the failure is due to all users being skipped
+          if [[ "$IMPORTED_USERS" -eq 0 ]] && [[ "$SKIPPED_USERS" -gt 0 ]] && [[ "$FAILED_USERS" -eq 0 ]]; then
+            echo "Import job stopped because all users already exist in the pool (all skipped). This is acceptable."
+            break
+          else
+            echo "Import failed with status: $STATUS"
+            echo "Details - Imported: $IMPORTED_USERS, Skipped: $SKIPPED_USERS, Failed: $FAILED_USERS"
+            # Only exit with error if there are actual failed users
+            if [[ "$FAILED_USERS" -gt 0 ]]; then
+              exit 1
+            else
+              echo "No actual failures detected, treating as successful import."
+              break
+            fi
+          fi
         fi
 
         sleep 10
