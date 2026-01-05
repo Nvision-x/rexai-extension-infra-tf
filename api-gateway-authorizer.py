@@ -1,10 +1,14 @@
 import json
+import os
 import jwt  # Requires PyJWT package
 import boto3
 from botocore.exceptions import ClientError
 
 # Initialize Secrets Manager client
 secrets_client = boto3.client('secretsmanager')
+
+# Get secret name from environment variable (set by Terraform)
+JWT_SECRET_NAME = os.environ.get('JWT_SECRET_NAME', 'rexai/jwt/secret')
 
 def get_secret(secret_name):
     """
@@ -17,7 +21,8 @@ def get_secret(secret_name):
         try:
             # Parse JSON if stored in JSON format
             secret = json.loads(secret_string)
-            return secret['jwtSecret']
+            # Support both 'secret' (new format) and 'jwtSecret' (legacy format)
+            return secret.get('secret') or secret.get('jwtSecret')
         except json.JSONDecodeError:
             # If it's plain text, return as-is
             return secret_string
@@ -32,8 +37,8 @@ def lambda_handler(event, context):
     """
     print(f"Received event: {json.dumps(event)}")
 
-    # Retrieve JWT secret from Secrets Manager
-    secret_key = get_secret("genai/auth/jwtSecret")
+    # Retrieve JWT secret from Secrets Manager using env variable
+    secret_key = get_secret(JWT_SECRET_NAME)
     print(f"Secret key fetched: {secret_key[:5]}... (truncated)")
 
     # Retrieve headers
