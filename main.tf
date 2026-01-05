@@ -351,6 +351,7 @@ resource "aws_lambda_function" "main" {
     variables = {
       OPENSEARCH_URL          = "https://${var.opensearch_domain_endpoint}"
       S3_BUCKET               = aws_s3_bucket.rexai_bucket.id
+      STEP_FX_ARN             = "arn:aws:states:${var.region}:${data.aws_caller_identity.current.account_id}:stateMachine:${var.step_function_name}"
       RECORDS_SCHEDULE_INDEX  = var.records_schedule_index
       JOBS_MASTER_INDEX       = var.jobs_master_index
       JOBS_FILES_INDEX        = var.jobs_files_index
@@ -564,11 +565,12 @@ resource "aws_lb_listener" "nlb_listener" {
 # API Gateway Lambda Authorizer Function
 # ----------------------------------------------------------------------------
 resource "aws_lambda_function" "authorizer" {
-  function_name = var.apigw_lambda_function_name
-  role          = var.lambda_authorizer_role_arn
-  handler       = "api-gateway-authorizer.lambda_handler"
-  runtime       = "python3.12"
-  filename      = "${path.module}/api-gateway-authorizer.zip"
+  function_name    = var.apigw_lambda_function_name
+  role             = var.lambda_authorizer_role_arn
+  handler          = "api-gateway-authorizer.lambda_handler"
+  runtime          = "python3.12"
+  filename         = "${path.module}/api-gateway-authorizer.zip"
+  source_code_hash = filebase64sha256("${path.module}/api-gateway-authorizer.zip")
 
   timeout     = 10
   memory_size = 128
@@ -604,6 +606,14 @@ resource "aws_lambda_function" "authorizer" {
 resource "aws_api_gateway_rest_api" "api" {
   name        = var.api_gateway_name
   description = var.api_gateway_description
+
+  # Binary media types for file uploads (ZIP, multipart, etc.)
+  binary_media_types = [
+    "multipart/form-data",
+    "application/octet-stream",
+    "application/zip",
+    "application/x-zip-compressed"
+  ]
 
   endpoint_configuration {
     types = ["REGIONAL"]
@@ -710,10 +720,18 @@ resource "aws_api_gateway_deployment" "api" {
   rest_api_id = aws_api_gateway_rest_api.api.id
 
   triggers = {
+    # Use specific attributes to avoid unnecessary redeployments from computed field drift
     redeployment = sha1(jsonencode([
-      aws_api_gateway_resource.proxy,
-      aws_api_gateway_method.proxy,
-      aws_api_gateway_integration.nlb,
+      aws_api_gateway_rest_api.api.binary_media_types,
+      aws_api_gateway_resource.proxy.id,
+      aws_api_gateway_resource.proxy.path_part,
+      aws_api_gateway_method.proxy.http_method,
+      aws_api_gateway_method.proxy.authorization,
+      aws_api_gateway_method.proxy.authorizer_id,
+      aws_api_gateway_integration.nlb.type,
+      aws_api_gateway_integration.nlb.uri,
+      aws_api_gateway_integration.nlb.connection_type,
+      aws_api_gateway_integration.nlb.connection_id,
     ]))
   }
 
