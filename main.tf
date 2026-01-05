@@ -351,7 +351,7 @@ resource "aws_lambda_function" "main" {
     variables = {
       OPENSEARCH_URL          = "https://${var.opensearch_domain_endpoint}"
       S3_BUCKET               = aws_s3_bucket.rexai_bucket.id
-      STEP_FX_ARN             = aws_sfn_state_machine.invoke_lambda_step_function.arn
+      STEP_FX_ARN             = "arn:aws:states:${var.region}:${data.aws_caller_identity.current.account_id}:stateMachine:${var.step_function_name}"
       RECORDS_SCHEDULE_INDEX  = var.records_schedule_index
       JOBS_MASTER_INDEX       = var.jobs_master_index
       JOBS_FILES_INDEX        = var.jobs_files_index
