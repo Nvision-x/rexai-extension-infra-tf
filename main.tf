@@ -564,11 +564,12 @@ resource "aws_lb_listener" "nlb_listener" {
 # API Gateway Lambda Authorizer Function
 # ----------------------------------------------------------------------------
 resource "aws_lambda_function" "authorizer" {
-  function_name = var.apigw_lambda_function_name
-  role          = var.lambda_authorizer_role_arn
-  handler       = "api-gateway-authorizer.lambda_handler"
-  runtime       = "python3.12"
-  filename      = "${path.module}/api-gateway-authorizer.zip"
+  function_name    = var.apigw_lambda_function_name
+  role             = var.lambda_authorizer_role_arn
+  handler          = "api-gateway-authorizer.lambda_handler"
+  runtime          = "python3.12"
+  filename         = "${path.module}/api-gateway-authorizer.zip"
+  source_code_hash = filebase64sha256("${path.module}/api-gateway-authorizer.zip")
 
   timeout     = 10
   memory_size = 128
