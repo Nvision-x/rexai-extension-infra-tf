@@ -606,6 +606,14 @@ resource "aws_api_gateway_rest_api" "api" {
   name        = var.api_gateway_name
   description = var.api_gateway_description
 
+  # Binary media types for file uploads (ZIP, multipart, etc.)
+  binary_media_types = [
+    "multipart/form-data",
+    "application/octet-stream",
+    "application/zip",
+    "application/x-zip-compressed"
+  ]
+
   endpoint_configuration {
     types = ["REGIONAL"]
   }
