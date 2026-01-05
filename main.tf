@@ -711,10 +711,17 @@ resource "aws_api_gateway_deployment" "api" {
   rest_api_id = aws_api_gateway_rest_api.api.id
 
   triggers = {
+    # Use specific attributes to avoid unnecessary redeployments from computed field drift
     redeployment = sha1(jsonencode([
-      aws_api_gateway_resource.proxy,
-      aws_api_gateway_method.proxy,
-      aws_api_gateway_integration.nlb,
+      aws_api_gateway_resource.proxy.id,
+      aws_api_gateway_resource.proxy.path_part,
+      aws_api_gateway_method.proxy.http_method,
+      aws_api_gateway_method.proxy.authorization,
+      aws_api_gateway_method.proxy.authorizer_id,
+      aws_api_gateway_integration.nlb.type,
+      aws_api_gateway_integration.nlb.uri,
+      aws_api_gateway_integration.nlb.connection_type,
+      aws_api_gateway_integration.nlb.connection_id,
     ]))
   }
 
