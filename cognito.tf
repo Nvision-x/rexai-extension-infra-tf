@@ -8,7 +8,17 @@
 # Cognito User Pool
 # ----------------------------------------------------------------------------
 resource "aws_cognito_user_pool" "rexai" {
-  name = "${var.name_prefix}-userpool"
+  name = coalesce(var.cognito_user_pool_name, "${var.name_prefix}-userpool")
+
+  deletion_protection = var.cognito_deletion_protection
+
+  # Disable self sign-up when only admins may create users
+  dynamic "admin_create_user_config" {
+    for_each = var.cognito_allow_admin_create_user_only ? [1] : []
+    content {
+      allow_admin_create_user_only = true
+    }
+  }
 
   # Username attributes - allow sign-in with email
   username_attributes      = ["email"]
@@ -40,16 +50,21 @@ resource "aws_cognito_user_pool" "rexai" {
   mfa_configuration = var.cognito_mfa_configuration
 
   # Schema attributes
-  schema {
-    name                     = "email"
-    attribute_data_type      = "String"
-    required                 = true
-    mutable                  = true
-    developer_only_attribute = false
+  # When email is not required, the block is omitted: email then stays a
+  # standard attribute at AWS defaults, which is what imported pools report.
+  dynamic "schema" {
+    for_each = var.cognito_email_schema_required ? [1] : []
+    content {
+      name                     = "email"
+      attribute_data_type      = "String"
+      required                 = true
+      mutable                  = true
+      developer_only_attribute = false
 
-    string_attribute_constraints {
-      min_length = 0
-      max_length = 256
+      string_attribute_constraints {
+        min_length = 0
+        max_length = 256
+      }
     }
   }
 
@@ -60,7 +75,7 @@ resource "aws_cognito_user_pool" "rexai" {
 # Cognito User Pool Domain
 # ----------------------------------------------------------------------------
 resource "aws_cognito_user_pool_domain" "rexai" {
-  domain       = "${var.name_prefix}-domain-${random_string.cognito_domain_suffix.result}"
+  domain       = coalesce(var.cognito_domain_prefix, "${var.name_prefix}-domain-${random_string.cognito_domain_suffix.result}")
   user_pool_id = aws_cognito_user_pool.rexai.id
 }
 
@@ -74,13 +89,18 @@ resource "random_string" "cognito_domain_suffix" {
 # Cognito User Pool Client
 # ----------------------------------------------------------------------------
 resource "aws_cognito_user_pool_client" "rexai" {
-  name         = "${var.name_prefix}-app-client"
+  name         = coalesce(var.cognito_app_client_name, "${var.name_prefix}-app-client")
   user_pool_id = aws_cognito_user_pool.rexai.id
 
   # OAuth settings
   allowed_oauth_flows_user_pool_client = true
-  allowed_oauth_flows                  = ["code", "implicit"]
-  allowed_oauth_scopes                 = ["openid", "email", "phone", "profile"]
+  allowed_oauth_flows                  = var.cognito_allowed_oauth_flows
+  allowed_oauth_scopes                 = var.cognito_allowed_oauth_scopes
+
+  # null keeps the provider/AWS default (unchanged behaviour for existing envs)
+  explicit_auth_flows           = var.cognito_explicit_auth_flows
+  prevent_user_existence_errors = var.cognito_prevent_user_existence_errors
+  enable_token_revocation       = var.cognito_enable_token_revocation
 
   # Callback and logout URLs
   callback_urls = var.cognito_callback_urls
@@ -101,9 +121,15 @@ resource "aws_cognito_user_pool_client" "rexai" {
   id_token_validity      = var.cognito_id_token_validity
 
   token_validity_units {
-    access_token  = "hours"
-    id_token      = "hours"
-    refresh_token = "days"
+    access_token  = var.cognito_token_validity_units.access_token
+    id_token      = var.cognito_token_validity_units.id_token
+    refresh_token = var.cognito_token_validity_units.refresh_token
+  }
+
+  # generate_secret is create-only and is not returned on import; ignoring it
+  # lets an existing public client be imported without forced replacement.
+  lifecycle {
+    ignore_changes = [generate_secret]
   }
 
   depends_on = [
@@ -144,7 +170,7 @@ resource "aws_cognito_identity_provider" "okta" {
 # Cognito Identity Pool
 # ----------------------------------------------------------------------------
 resource "aws_cognito_identity_pool" "rexai" {
-  identity_pool_name               = "${var.name_prefix}-identity-pool"
+  identity_pool_name               = coalesce(var.cognito_identity_pool_name, "${var.name_prefix}-identity-pool")
   allow_unauthenticated_identities = false
 
   cognito_identity_providers {

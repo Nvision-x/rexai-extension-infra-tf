@@ -395,6 +395,100 @@ variable "cognito_id_token_validity" {
   default     = 1
 }
 
+# Cognito naming / adoption overrides
+# All default to the existing behaviour. They exist so an environment whose
+# Cognito resources were created outside this module can be imported without
+# forcing replacement (pool name, domain and schema are immutable).
+variable "cognito_user_pool_name" {
+  description = "Override the user pool name (default: <name_prefix>-userpool). Immutable after creation."
+  type        = string
+  default     = null
+}
+
+variable "cognito_app_client_name" {
+  description = "Override the app client name (default: <name_prefix>-app-client)"
+  type        = string
+  default     = null
+}
+
+variable "cognito_identity_pool_name" {
+  description = "Override the identity pool name (default: <name_prefix>-identity-pool)"
+  type        = string
+  default     = null
+}
+
+variable "cognito_domain_prefix" {
+  description = "Fixed Cognito hosted UI domain prefix (default: <name_prefix>-domain-<random>)"
+  type        = string
+  default     = null
+}
+
+variable "cognito_allow_admin_create_user_only" {
+  description = "Disable self sign-up; only admins can create users"
+  type        = bool
+  default     = false
+}
+
+variable "cognito_deletion_protection" {
+  description = "User pool deletion protection: ACTIVE or INACTIVE"
+  type        = string
+  default     = "INACTIVE"
+  validation {
+    condition     = contains(["ACTIVE", "INACTIVE"], var.cognito_deletion_protection)
+    error_message = "cognito_deletion_protection must be ACTIVE or INACTIVE"
+  }
+}
+
+variable "cognito_email_schema_required" {
+  description = "Declare email as a required schema attribute (true = existing behaviour). Set false to adopt a pool where email is optional. Changing it on an existing pool forces replacement."
+  type        = bool
+  default     = true
+}
+
+variable "cognito_allowed_oauth_flows" {
+  description = "Allowed OAuth flows for the app client"
+  type        = list(string)
+  default     = ["code", "implicit"]
+}
+
+variable "cognito_allowed_oauth_scopes" {
+  description = "Allowed OAuth scopes for the app client"
+  type        = list(string)
+  default     = ["openid", "email", "phone", "profile"]
+}
+
+variable "cognito_explicit_auth_flows" {
+  description = "Explicit auth flows for the app client (null = AWS default)"
+  type        = list(string)
+  default     = null
+}
+
+variable "cognito_prevent_user_existence_errors" {
+  description = "ENABLED or LEGACY (null = AWS default)"
+  type        = string
+  default     = null
+}
+
+variable "cognito_enable_token_revocation" {
+  description = "Enable refresh token revocation (null = AWS default)"
+  type        = bool
+  default     = null
+}
+
+variable "cognito_token_validity_units" {
+  description = "Units for access/id/refresh token validity"
+  type = object({
+    access_token  = string
+    id_token      = string
+    refresh_token = string
+  })
+  default = {
+    access_token  = "hours"
+    id_token      = "hours"
+    refresh_token = "days"
+  }
+}
+
 # =====================================================================
 # Frontend App Runner Configuration Variables
 # =====================================================================
